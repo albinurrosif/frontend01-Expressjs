@@ -1,13 +1,49 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Table, Button, Modal } from 'react-bootstrap';
-import axios from 'axios';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import { Container, Row, Col, Button, Modal } from 'react-bootstrap';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+const token = localStorage.getItem('token');
+
+// ini cara instannya tanpa perlu meng set token pada setiap handle
+// axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
 function Mahasiswa() {
+  console.log(token);
   const [mhs, setMhs] = useState([]);
   const [jrs, setJrsn] = useState([]);
-  const [show, setShow] = useState(false);
+  const url = 'http://localhost:3000/static/';
+  useEffect(() => {
+    fectData();
+  }, []);
+  const fectData = async () => {
+    try {
+      const headers = {
+        Authorization: `Bearer ${token}`,
+      };
+      const response1 = await axios.get('http://localhost:3000/api/mhs', { headers });
+      const response2 = await axios.get('http://localhost:3000/api/jurusan', { headers });
+      const data1 = response1.data.data;
+      const data2 = response2.data.data;
+      setMhs(data1);
+      setJrsn(data2);
+    } catch (error) {
+      // Tangani kesalahan permintaan data
+      console.error('Gagal mengambil data:', error);
+    }
+  };
+
+  const [showAddModal, setShowAddModal] = useState(false); // State untuk modal penambahan
+  const [showEditModal, setShowEditModal] = useState(false); // State untuk modal pengeditan
+
+  const handleShowAddModal = () => {
+    setShowAddModal(true);
+    setShowEditModal(false); // Pastikan modal pengeditan ditutup saat membuka modal penambahan
+  };
+  const handleCloseAddModal = () => {
+    setShowAddModal(false); // Menggunakan setShowAddModal
+    setEditData(null);
+  };
+
   const [nama, setNama] = useState('');
   const [nrp, setNrp] = useState('');
   const [id_jurusan, setIdJurusan] = useState('');
@@ -15,50 +51,20 @@ function Mahasiswa() {
   const [swa_foto, setSwaFoto] = useState(null);
   const [validation, setValidation] = useState({});
   const navigate = useNavigate();
-  const url = 'http://localhost:3000/static/';
-
-  useEffect(() => {
-    fectData();
-  }, []);
-
-  const fectData = async () => {
-    try {
-      const response1 = await axios.get('http://localhost:3000/api/mhs/');
-      const data1 = await response1.data.data;
-      setMhs(data1);
-
-      const response2 = await axios.get('http://localhost:3000/api/jurusan/');
-      const data2 = await response2.data.data;
-      setJrsn(data2);
-      console.log(response2);
-    } catch (error) {
-      console.error('Kesalahan: ', error);
-    }
-  };
-
-  const handleShow = () => setShow(true);
-  const handleClose = () => {
-    console.log('Modal is closing');
-    setShow(false);
-  };
 
   const handleNamaChange = (e) => {
     setNama(e.target.value);
   };
-
   const handleNrpChange = (e) => {
     setNrp(e.target.value);
   };
-
   const handleIdJurusanChange = (e) => {
     setIdJurusan(e.target.value);
   };
-
   const handleGambarChange = (e) => {
     const file = e.target.files[0];
     setGambar(file);
   };
-
   const handleSwaFotoChange = (e) => {
     const file = e.target.files[0];
     setSwaFoto(file);
@@ -67,6 +73,7 @@ function Mahasiswa() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData();
+
     formData.append('nama', nama);
     formData.append('nrp', nrp);
     formData.append('id_jurusan', id_jurusan);
@@ -74,42 +81,41 @@ function Mahasiswa() {
     formData.append('swa_foto', swa_foto);
 
     try {
-      const response = await axios.post('http://localhost:3000/api/mhs/store', formData, {
+      await axios.post('http://localhost:3000/api/mhs/store', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`,
         },
       });
-      console.log(response);
-      navigate('/mhs/');
+      navigate('/mhs');
       fectData();
+      setShowAddModal(false);
     } catch (error) {
-      console.error('Kesalahan: ', error);
+      console.error('Kesalahan:', error);
       setValidation(error.response.data);
     }
   };
 
+  // edit start
   const [editData, setEditData] = useState({
     id: null,
     nama: '',
     nrp: '',
     id_jurusan: '',
   });
-  const [showEditModal, setShowEditModal] = useState(false);
 
-  const handleShowEditModal = (data) => {
-    setEditData(data);
-    setShowEditModal(true);
-    setShow(false);
+  const handleClose = () => {
+    setEditData(null); // Reset editData when the modal is closed
   };
 
+  const handleShowEditModal = (data) => {
+    setEditData(data); // Atur data yang akan diedit
+    setShowEditModal(true); // Buka modal pengeditan
+    setShowAddModal(false); // Pastikan modal penambahan ditutup saat membuka modal pengeditan
+  };
   const handleCloseEditModal = () => {
-    setShowEditModal(false);
-    setEditData({
-      id_m: null,
-      nama: '',
-      nrp: '',
-      id_jurusan: '',
-    });
+    setShowEditModal(false); // Menggunakan setShowEditModal
+    setEditData(null);
   };
 
   const handleEditDataChange = (field, value) => {
@@ -121,27 +127,29 @@ function Mahasiswa() {
 
   const handleUpdate = async (e) => {
     e.preventDefault();
-
     const formData = new FormData();
-    formData.append('id_m', editData.id_m);
+
+    formData.append('id', editData.id);
     formData.append('nama', editData.nama);
     formData.append('nrp', editData.nrp);
     formData.append('id_jurusan', editData.id_jurusan);
+
     if (editData.gambar) {
       formData.append('gambar', editData.gambar);
     }
+
     if (editData.swa_foto) {
       formData.append('swa_foto', editData.swa_foto);
     }
 
     try {
-      await axios.patch(`http://localhost:3000/api/mhs/update/${editData.id_m}`, formData, {
+      await axios.patch(`http://localhost:3000/api/mhs/update/${editData.id}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`,
         },
       });
-
-      navigate('/mhs/');
+      navigate('/mhs');
       fectData();
       setShowEditModal(false);
     } catch (error) {
@@ -150,13 +158,20 @@ function Mahasiswa() {
     }
   };
 
-  const handleDelete = (id_m) => {
+  // edit end
+
+  const handleDelete = (id) => {
     axios
-      .delete(`http://localhost:3000/api/mhs/delete/${id_m}`)
+      .delete(`http://localhost:3000/api/mhs/delete/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
       .then((response) => {
         console.log('Data berhasil dihapus');
-        const updatedMhs = mhs.filter((item) => item.id_m !== id_m);
-        setMhs(updatedMhs);
+        // Hapus item dari array data mhs
+        const updatedMhs = mhs.filter((item) => item.id !== id);
+        setMhs(updatedMhs); // Perbarui state dengan data yang sudah diperbarui
       })
       .catch((error) => {
         console.error('Gagal menghapus data:', error);
@@ -169,30 +184,29 @@ function Mahasiswa() {
       <Row>
         <Col>
           <h2>Data Mahasiswa</h2>
-          <Button variant="primary" onClick={handleShow}>
-            Tambah
+          <Button variant="primary" onClick={handleShowAddModal}>
+            Tambah{' '}
           </Button>
         </Col>
+      </Row>
+      <Row>
         <table className="table">
           <thead>
             <tr>
               <th scope="col">No</th>
               <th scope="col">Nama</th>
               <th scope="col">Jurusan</th>
-              <th scope="col">gambar</th>
-              <th scope="col">swa_foto</th>
-              <th scope="col" colSpan={2}>
-                Action
-              </th>
+              <th scope="col">#</th>
+              <th scope="col">#</th>
+              <th scope="col">#</th>
             </tr>
           </thead>
-
           <tbody>
             {mhs.map((mh, index) => (
               <tr>
                 <td>{index + 1}</td>
                 <td>{mh.nama}</td>
-                <td>{mh.id_jurusan}</td>
+                <td>{mh.jurusan}</td>
                 <td>
                   <img src={url + mh.gambar} height="100" />
                 </td>
@@ -200,13 +214,14 @@ function Mahasiswa() {
                   <img src={url + mh.swa_foto} height="100" />
                 </td>
                 <td>
+                  {' '}
                   <button onClick={() => handleShowEditModal(mh)} className="btn btn-sm btn-info">
-                    Edit
+                    {' '}
+                    Edit{' '}
                   </button>
                 </td>
                 <td>
-                  {' '}
-                  <button onClick={() => handleDelete(mh.id_m)} className="btn btn-sm btn-danger">
+                  <button onClick={() => handleDelete(mh.id)} className="btn btn-sm btn-danger">
                     Hapus
                   </button>
                 </td>
@@ -215,12 +230,8 @@ function Mahasiswa() {
           </tbody>
         </table>
       </Row>
-      <Row>
-        <Table striped bordered hover>
-          {/* Tabel Mahasiswa */}
-        </Table>
-      </Row>
-      <Modal show={show} onHide={handleClose}>
+
+      <Modal show={showAddModal} onHide={handleCloseAddModal}>
         <Modal.Header closeButton>
           <Modal.Title>Tambah Data</Modal.Title>
         </Modal.Header>
@@ -236,19 +247,9 @@ function Mahasiswa() {
             </div>
             <div className="mb-3">
               <label className="form-label">Jurusan:</label>
-              <select
-                className="form-select"
-                onChange={(e) => {
-                  setIdJurusan(e.target.value);
-                  console.log(id_jurusan);
-                }}
-                defaultValue={''}
-              >
-                <option value={''} selected={true}>
-                  Select Jurusan
-                </option>
-                {jrs.map((jr, idx) => (
-                  <option key={idx} value={jr.id_j}>
+              <select className="form-select" value={id_jurusan} onChange={handleIdJurusanChange}>
+                {jrs.map((jr) => (
+                  <option key={jr.id_j} value={jr.id_j}>
                     {jr.nama_jurusan}
                   </option>
                 ))}
@@ -295,7 +296,13 @@ function Mahasiswa() {
             </div>
             <div className="mb-3">
               <label className="form-label">Gambar:</label>
-              <input type="file" className="form-control" accept="image/*" onChange={(e) => handleEditDataChange('gambar', e.target.files[0])} />
+              <input
+                type="file"
+                className="form-control"
+                // value={editData ? editData.gambar : ''}
+                accept="image/*"
+                onChange={(e) => handleEditDataChange('gambar', e.target.files[0])}
+              />
             </div>
             <div className="mb-3">
               <label className="form-label">Swa Foto:</label>
